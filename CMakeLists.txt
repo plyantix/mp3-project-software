@@ -35,7 +35,9 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mp3 mp3.c )
+add_executable(mp3 
+        mp3.c 
+        hw_config.c)
 
 pico_set_program_name(mp3 "mp3")
 pico_set_program_version(mp3 "0.1")
@@ -44,9 +46,12 @@ pico_set_program_version(mp3 "0.1")
 pico_enable_stdio_uart(mp3 0)
 pico_enable_stdio_usb(mp3 1)
 
+add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
+
 # Add the standard library to the build
 target_link_libraries(mp3
-        pico_stdlib)
+        pico_stdlib
+        no-OS-FatFS-SD-SDIO-SPI-RPi-Pico)
 
 # Add the standard include files to the build
 target_include_directories(mp3 PRIVATE
