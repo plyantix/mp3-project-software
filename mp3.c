@@ -10,6 +10,8 @@
 #include "ili9341.h"
 #include "gfx.h"
 
+#include "i2s.h"
+
 int main()
 {
     stdio_init_all();
@@ -46,49 +48,6 @@ int main()
     }
     GFX_printf("Sucessfully mounted file system!\n");
 
-    int sector_size, sector_count;
-    err = disk_ioctl(0, GET_SECTOR_COUNT, &sector_count);
-    GFX_printf("Sector count error: %x, count: %d\n", err, sector_count);
-
-    // err = disk_ioctl(0, GET_SECTOR_SIZE, &sector_size);
-    // GFX_printf("Sector size error: %x, size: %d\n", err, sector_size);
-
-    // GFX_printf("Enter text:\n");
-
-    // int index = 0;
-    // while (true) {
-    //     // Non-blocking read (returns PICO_ERROR_TIMEOUT if no character is sent)
-    //     int c = stdio_getchar();
-        
-    //     if (c != PICO_ERROR_TIMEOUT) {
-    //         // Check for line endings
-    //         if (c == '\n' || c == '\r') {
-    //             buff[index] = '\0'; // Terminate string
-    //             if (index > 0) {
-    //                 index = 0; // Reset buffer index
-    //             }
-    //             break;
-    //         } else if (index < sizeof(buff) - 1) {
-    //             buff[index++] = (char)c; // Store character
-    //         }
-    //     }
-    // }
-    // sleep_ms(10);
-    // puts_raw(buff);
-    
-    // f_open(&file, "test.txt", FA_OPEN_APPEND | FA_WRITE);
-
-    // f_puts(buff, &file);
-
-    // f_close(&file);
-
-    // f_open(&file, "test.txt", FA_READ);
-
-    // f_gets(buff, sizeof(buff), &file);
-
-    // printf(buff);
-    // FATFS fs;
-    // f_mount(&fs, "", 1);
     while (true) {
         tud_task(); // TinyUSB
     }

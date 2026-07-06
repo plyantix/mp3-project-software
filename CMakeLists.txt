@@ -51,15 +51,11 @@ pico_enable_stdio_usb(mp3 1)
 
 add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
 add_subdirectory(pico-displayDrivs)
+add_subdirectory(i2s)
+
 
 # Add the standard library to the build
-target_link_libraries(mp3
-        pico_stdlib
-        no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
-        tinyusb_device
-        tinyusb_board
-        gfx
-        ili9341)
+target_link_libraries(mp3 pico_stdlib)
 
 # Add the standard include files to the build
 target_include_directories(mp3 PRIVATE
@@ -68,7 +64,13 @@ target_include_directories(mp3 PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(mp3 
-        
+        pico_multicore
+        no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
+        tinyusb_device
+        tinyusb_board
+        gfx
+        ili9341
+        i2s
         )
 
 pico_add_extra_outputs(mp3)
