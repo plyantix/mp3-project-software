@@ -40,6 +40,7 @@ add_executable(mp3
         hw_config.c
         usb_descriptors.c
         usb_msc_interface.c
+        picomp3lib/interface/music_file.c
         )
 
 pico_set_program_name(mp3 "mp3")
@@ -52,6 +53,7 @@ pico_enable_stdio_usb(mp3 1)
 add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
 add_subdirectory(pico-displayDrivs)
 add_subdirectory(i2s)
+add_subdirectory(picomp3lib/src)
 
 
 # Add the standard library to the build
@@ -60,6 +62,7 @@ target_link_libraries(mp3 pico_stdlib)
 # Add the standard include files to the build
 target_include_directories(mp3 PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+
 )
 
 # Add any user requested libraries
@@ -71,6 +74,7 @@ target_link_libraries(mp3
         gfx
         ili9341
         i2s
+        picomp3lib
         )
 
 pico_add_extra_outputs(mp3)

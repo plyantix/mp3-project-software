@@ -4,3 +4,6 @@
 [submodule "pico-displayDrivs"]
 	path = pico-displayDrivs
 	url = https://github.com/tvlad1234/pico-displayDrivs
+[submodule "picomp3lib"]
+	path = picomp3lib
+	url = https://github.com/ikjordan/picomp3lib.git

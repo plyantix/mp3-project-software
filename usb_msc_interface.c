@@ -29,7 +29,8 @@
 #include "tusb.h"
 #include "hw_config.h"
 #include "ff.h"
-#include "gfx.h"
+// #include "gfx.h"
+#define GFX_printf(...) (void) 0
 
 #define DISK_BLOCK_SIZE 512 // should probably replace with a way to dynamically detect but should usually be 512
 
