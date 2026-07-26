@@ -29,8 +29,13 @@
 #include "tusb.h"
 #include "hw_config.h"
 #include "ff.h"
-// #include "gfx.h"
+
+#include "config.h"
+#ifdef CF_MSC_DEBUG
+#include "gfx.h"
+#else
 #define GFX_printf(...) (void) 0
+#endif
 
 #define DISK_BLOCK_SIZE 512 // should probably replace with a way to dynamically detect but should usually be 512
 
@@ -105,7 +110,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         }
         else {
             // unload disk storage
-            // f_unmount("");
+            f_unmount("");
             ejected = true;
         }
     }

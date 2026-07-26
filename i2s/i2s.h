@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "hardware/pio.h"
 
-#define AUDIO_BUFFER_SIZE 2000
+#define AUDIO_BUFFER_SIZE 1024*4
 #define BITDEPTH 16
 
 typedef void(*i2s_callback_t)(void *addr, uint32_t len);

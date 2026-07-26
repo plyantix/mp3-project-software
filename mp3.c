@@ -7,19 +7,23 @@
 #include "tusb_config.h"
 #include "tusb.h"
 
-// #include "ili9341.h"
-// #include "gfx.h"
-#define GFX_printf(...) (void) 0
+#include "ili9341.h"
+#include "gfx.h"
+// #define printf(...) (void) 0
+#define printf(...) GFX_printf(__VA_ARGS__)
+// #define printf(...) print_f(__VA_ARGS__)
+
 
 #include "i2s.h"
 
 #include "music_file.h"
 
 #include "pico/multicore.h"
+#include "hardware/clocks.h"
 
-#define USE_TINYUSB
+// #define USE_TINYUSB
 
-#define MF_BUFF_SIZE 1024
+#define MF_BUFF_SIZE 1024 * 32
 char mf_buff[MF_BUFF_SIZE]; // Buffer used internally by the mf library
 music_file mf = {
     .init = false
@@ -30,7 +34,8 @@ uint32_t sample_rate = 0;
 void i2s_callback(void* buff, uint32_t len) {
     uint32_t written;
     // if the music file is mono, this will not duplicate the samples!!!
-    musicFileRead(&mf, buff, len / 2, &written);
+    int err = musicFileRead(&mf, buff, len / 2, &written);
+    printf("Music file written, err: %d, written: %d", err, written);
     // should also check if written < len/2
 }
 
@@ -52,8 +57,8 @@ void load_file(char* path) {
 }
 
 void core1_main() {
-    printf("loading mp3\n");
-    load_file("stereo-test.mp3");
+    printf("loading music file\n");
+    load_file("21. Modern Gamer.mp3");
     printf("initializing i2s\n");
     i2s_init(pio0, 7, 8, i2s_callback, 44100);
     
@@ -66,21 +71,23 @@ int main()
 {
     stdio_init_all();
 
-    // LCD_setPins(11, 13, 10, 14, 15);
-    // LCD_setSPIperiph(spi1);
+    set_sys_clock_hz(260*1000*1000, true); // dangerous! but necesssary for real time decoding on pico 1
 
-    // LCD_initDisplay();
-    // LCD_setRotation(0);
-    // int c = 0;
+    LCD_setPins(11, 13, 10, 14, 15);
+    LCD_setSPIperiph(spi1);
 
-    // GFX_clearScreen();
-    // GFX_setCursor(0, 0);
-    // GFX_printf("LCD Initilized\n");
+    LCD_initDisplay();
+    LCD_setRotation(2);
+    int c = 0;
+
+    GFX_clearScreen();
+    GFX_setCursor(0, 0);
+    printf("LCD Initilized\n");
 
 #ifdef USE_TINYUSB
     int err;
     err = tusb_init();
-    GFX_printf("TinyUSB Initialized (Error: %d)\n", err);
+    printf("TinyUSB Initialized (Error: %d)\n", err);
 #endif
 
     FATFS fs;
@@ -99,7 +106,7 @@ int main()
     }
     printf("Sucessfully mounted file system!\n");
 
-    // core1_main();
+    core1_main();
 
     while (true) {
 #ifdef USE_TINYUSB

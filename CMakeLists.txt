@@ -75,6 +75,7 @@ target_link_libraries(mp3
         ili9341
         i2s
         picomp3lib
+        hardware_clocks
         )
 
 pico_add_extra_outputs(mp3)
