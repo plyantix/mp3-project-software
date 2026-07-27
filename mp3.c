@@ -71,8 +71,6 @@ int main()
 {
     stdio_init_all();
 
-    set_sys_clock_hz(260*1000*1000, true); // dangerous! but necesssary for real time decoding on pico 1
-
     LCD_setPins(11, 13, 10, 14, 15);
     LCD_setSPIperiph(spi1);
 

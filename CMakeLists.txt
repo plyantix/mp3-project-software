@@ -53,6 +53,7 @@ pico_enable_stdio_usb(mp3 1)
 add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
 add_subdirectory(pico-displayDrivs)
 add_subdirectory(i2s)
+add_subdirectory(ST7565R)
 add_subdirectory(picomp3lib/src)
 
 
@@ -76,6 +77,7 @@ target_link_libraries(mp3
         i2s
         picomp3lib
         hardware_clocks
+        ST7565R
         )
 
 pico_add_extra_outputs(mp3)
