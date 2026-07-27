@@ -40,7 +40,7 @@ add_executable(mp3
         hw_config.c
         usb_descriptors.c
         usb_msc_interface.c
-        picomp3lib/interface/music_file.c
+        lib/picomp3lib/interface/music_file.c
         )
 
 pico_set_program_name(mp3 "mp3")
@@ -48,13 +48,13 @@ pico_set_program_version(mp3 "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(mp3 0)
-pico_enable_stdio_usb(mp3 1)
+pico_enable_stdio_usb(mp3 0)
 
-add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
-add_subdirectory(pico-displayDrivs)
-add_subdirectory(i2s)
-add_subdirectory(ST7565R)
-add_subdirectory(picomp3lib/src)
+add_subdirectory(lib/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
+add_subdirectory(lib/pico-displayDrivs)
+add_subdirectory(lib/i2s)
+add_subdirectory(lib/ST7565R)
+add_subdirectory(lib/picomp3lib/src)
 
 
 # Add the standard library to the build
