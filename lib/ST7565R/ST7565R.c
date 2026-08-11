@@ -1,18 +1,13 @@
 #include <string.h>
 #include "pico/stdlib.h"
 
+#include "ST7565R.h"
+
 #include "hardware/spi.h"
 #include "hardware/gpio.h"
 
 #include "font8x8_basic.h"
 
-#define WIDTH 128
-#define HEIGHT 32
-
-struct pos {
-    uint x;
-    uint y;
-};
 
 // 1 bit, 0=1/9, 1=1/7
 static const uint8_t cmd_bias_select = 0b10100010;
