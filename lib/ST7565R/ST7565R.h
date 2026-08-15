@@ -18,5 +18,5 @@ void ST7565R_init(spi_inst_t* spi_inst,
 void ST7565R_set_pixel(uint8_t x, uint8_t y, bool value);
 void ST7565R_refresh_screen_area(uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2);
 void ST7565R_refresh_screen(void);
-void ST7565R_write_text(char* text, uint8_t page, uint8_t x);
+void ST7565R_write_text(uint8_t page, uint8_t x, char* format, ...);
 

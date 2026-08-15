@@ -2,6 +2,7 @@
 #include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
+#include "hardware/watchdog.h"
 
 #include "ST7565R.h"
 
@@ -36,19 +37,29 @@ void blink_backlight() {
     }
 }
 
+
+#define CALIBRATION (4.057f/4.05f)
 void battery_info() {
+    ST7565R_init(LCD_SPI, LCD_SCK, LCD_TX, LCD_RX, LCD_CS, LCD_A0, LCD_RST);
+    gpio_init(LCD_BACKLIGHT);
+    gpio_set_dir(LCD_BACKLIGHT, GPIO_OUT);
+
+    gpio_put(LCD_BACKLIGHT, true);
     gpio_init(BATTERY_STAT);
     gpio_set_dir(BATTERY_STAT, GPIO_IN);
     gpio_pull_up(BATTERY_STAT);
     adc_init();
     adc_gpio_init(BATTERY_MONITOR);
+    adc_select_input(BATTERY_MONITOR - 26);
 
-    bool charging = !gpio_get(BATTERY_STAT);
-    uint16_t level = adc_read();
-
-    printf(charging ? "Battery is charging!\n" : "Battery is not charging!\n");
-    printf("Raw battery level: %d\n", level);
-    printf("Battery voltage: %f V\n", ((float) level / 0x0fff) * 3.3f * 4.2f / 3.f);
+    while(true) {
+        bool charging = !gpio_get(BATTERY_STAT);
+        uint16_t level = adc_read();
+        ST7565R_write_text(0, 0, charging ? "Charging!      \n" : "Not charging!\n");
+        ST7565R_write_text(1, 0, "Level: %d\n", level);
+        ST7565R_write_text(2, 0, "%f V\n", ((float) level / (float) 0x0fff) * 3.3f * 4.2f / 3.f * CALIBRATION);
+        sleep_ms(50);
+    }
 }
 
 void switches() {
@@ -64,6 +75,11 @@ void switches() {
     gpio_set_dir(SW_5, GPIO_IN);
     gpio_set_dir(SW_6, GPIO_IN);
 
+    ST7565R_init(LCD_SPI, LCD_SCK, LCD_TX, LCD_RX, LCD_CS, LCD_A0, LCD_RST);
+    gpio_init(LCD_BACKLIGHT);
+    gpio_set_dir(LCD_BACKLIGHT, GPIO_OUT);
+    gpio_put(LCD_BACKLIGHT, true);
+
     while (true) {
         bool sw2 = gpio_get(SW_2);
         bool sw3 = gpio_get(SW_3);
@@ -71,8 +87,8 @@ void switches() {
         bool sw5 = gpio_get(SW_5);
         bool sw6 = gpio_get(SW_6);
 
-        printf("2 3 4 5 6\n");
-        printf("%d %d %d %d %d %d\n\n", sw2, sw3, sw4, sw5, sw6);        
+        ST7565R_write_text(0, 0, "2 3 4 5 6");
+        ST7565R_write_text(1, 0, "%d %d %d %d %d", sw2, sw3, sw4, sw5, sw6);        
         sleep_ms(50);
     }
 }
@@ -83,7 +99,9 @@ void screen() {
     gpio_set_dir(LCD_BACKLIGHT, GPIO_OUT);
     gpio_put(LCD_BACKLIGHT, true);
 
-    ST7565R_write_text("Hello World!", 2, 25);
+    for (int i = 0; i < 4; i++) {
+        ST7565R_write_text(i, 25, "Hello!");
+    }
 }
 
 void sd_card() {
@@ -137,14 +155,26 @@ static void callback(void* addr, const uint32_t len) {
     static int pos = 0;
 
     for (int i = 0; i < len / 4; i++) {
-        ((int16_t*) addr)[i*2] = wave_table[pos];
-        ((int16_t*) addr)[i*2+1] = wave_table[pos];
+        ((int16_t*) addr)[i*2] = wave_table[pos] / 8;
+        ((int16_t*) addr)[i*2+1] = wave_table[(int)(pos * 8) % WAVE_TABLE_LEN] / 16;
         pos++;
         pos %= WAVE_TABLE_LEN;
     }
+    // printf("I2S Callback!\n");
+}
+
+
+void gpio_callback(uint gpio, uint32_t events) {
+    printf("restarting\n");
+    watchdog_enable(1, 1);
+    while (1); 
 }
 
 void audio() {
+    sleep_ms(20);
+    gpio_init(SW_3);
+    gpio_set_irq_enabled_with_callback(SW_3, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
         wave_table[i] = (int16_t) ((INT16_MAX - 1) * sinf((float) i / WAVE_TABLE_LEN * 2*M_PI));
     }
@@ -156,9 +186,9 @@ void audio() {
 
     i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, callback, SAMPLE_RATE);
     printf("Initialized I2S\n");
-    while (true) {
-        tight_loop_contents();
-    }
+    // while (true) {
+    //     tight_loop_contents();
+    // }
 }
 #undef SAMPLE_RATE
 #undef FREQUENCY
@@ -182,8 +212,11 @@ music_file mf = {
 void decode_callback(void* buff, uint32_t len) {
     uint32_t written = 0;
     // if the music file is mono, this will not duplicate the samples!!!
-    while (written < len / 2) {
-        musicFileRead(&mf, (uint16_t*) buff, len / 2 - written, &written);
+
+    musicFileRead(&mf, buff, len / 2, &written);
+
+    for (int i = 0; i < len / 2; i++) {
+        ((int16_t*) buff)[i] = ((int16_t*) buff)[i] / 16;
     }
     // printf("Music file written, len: %d, written: %d\n", len, written);
     // should also check if written < len/2
@@ -204,16 +237,16 @@ void decode() {
 
     
     
-    bool err = musicFileCreate(&mf, "21. Modern Gamer.wav", mf_buff, sizeof(mf_buff));
+    bool err = musicFileCreate(&mf, "stereo-test.wav", mf_buff, sizeof(mf_buff));
     
     printf("Created music file, error: %d.\n", err);
     
     i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, decode_callback, 48000);
     printf("Initialized i2s!\n");
 
-    while (true) {
-        tight_loop_contents();
-    }
+    // while (true) {
+    //     tight_loop_contents();
+    // }
 }
 
 #undef MF_BUFF_SIZE

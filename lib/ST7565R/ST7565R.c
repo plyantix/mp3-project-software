@@ -1,4 +1,7 @@
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "pico/stdlib.h"
 
 #include "ST7565R.h"
@@ -13,7 +16,7 @@
 static const uint8_t cmd_bias_select = 0b10100010;
 // 1 bit, 0=column addresses go from left to right, 1=column adresses go from right to left
 static const uint8_t cmd_seg_direction = 0b10100000;
-// 1 bit, param is bit 3, 0=row addresses go from top to bottom, 1=row adresses go from bottom to top
+// 1 bit, param is bit 3, 0=row addresses go from bottom to top, 1=row adresses go from top to bottom
 static const uint8_t cmd_com_direction = 0b11000000;
 //                                             ^parameter
 // 3 bits
@@ -55,6 +58,10 @@ static void set_column_address(uint8_t column) {
     ST7565R_cmd(cmd_set_column_address_lsb | (column & 0x0f));
 }
 
+static void set_page_address(uint8_t page) {
+    ST7565R_cmd(cmd_set_page_address | page);
+}
+
 void ST7565R_set_pixel(uint8_t x, uint8_t y, bool value) {
     assert(x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT);
     display[y/8][x] = (display[y/8][x] & ~(1<<(y%8))) | (value << (y%8));
@@ -73,6 +80,7 @@ void ST7565R_ddram_write(uint8_t* data, size_t len) {
 void ST7565R_refresh_screen_area(uint8_t x1, uint8_t x2, uint8_t y1, uint8_t y2) {
     // For every page within the area
     for (uint8_t page = y1 / 8; page < y2 / 8; page++) {
+        set_page_address(page);
         set_column_address(x1);
         ST7565R_ddram_write(&display[page][x1], x2 - x1);
     }
@@ -82,7 +90,19 @@ void ST7565R_refresh_screen() {
     ST7565R_refresh_screen_area(updated_x1, updated_x2, updated_y1, updated_y2);
 }
 
-void ST7565R_write_text(char* text, uint8_t page, uint8_t x) {
+void ST7565R_write_text(uint8_t page, uint8_t x, char* format, ...) {
+
+    // formatting
+    char text[64];
+
+    va_list args;
+    va_start(args, format);
+
+    vsnprintf(text, sizeof(text), format, args);
+
+    va_end(args);
+
+
     size_t len = strlen(text);
 
     // overflow protection
@@ -91,6 +111,8 @@ void ST7565R_write_text(char* text, uint8_t page, uint8_t x) {
     }
 
     set_column_address(x);
+    
+    set_page_address(page);
 
     for (int i = 0; i < len; i++) {
         ST7565R_ddram_write(font8x8_basic[text[i]], 8);
@@ -131,7 +153,7 @@ void ST7565R_init(spi_inst_t* spi_inst, uint pin_sck, uint pin_tx, uint pin_rx, 
     ST7565R_cmd(cmd_display_enable | 0b0);
     ST7565R_cmd(cmd_bias_select | 0b0);
     ST7565R_cmd(cmd_seg_direction | 0b0);
-    ST7565R_cmd(cmd_com_direction | (0b0 << 3));
+    ST7565R_cmd(cmd_com_direction | (0b1 << 3));
     ST7565R_cmd(cmd_regulation_ratio | 0b001);
     ST7565R_cmd(cmd_set_ev_1);
     ST7565R_cmd(cmd_set_ev_2 | 0b11111);
