@@ -12,10 +12,13 @@
 
 int main()
 {
-    while (true) {
-        sleep_ms(10000); // 52mA
-        low_power_dormant_for_ms(10000, DORMANT_CLOCK_SOURCE_DEFAULT, NULL); // 38.91 mA
-    }
+    stdio_init_all();
+    printf("Starting!\n");
+    sleep_ms(5000);
+    // while (true) {
+    //     sleep_ms(10000); // 52mA
+    //     low_power_dormant_for_ms(10000, DORMANT_CLOCK_SOURCE_DEFAULT, NULL); // 38.91 mA
+    // }
 
     // ST7565R_init(LCD_SPI, LCD_SCK, LCD_TX, LCD_RX, LCD_CS, LCD_A0, LCD_RST);
     // gpio_init(LCD_BACKLIGHT);
@@ -31,7 +34,7 @@ int main()
     // sleep_ms(5000);
     // hello_world();
     // blink_backlight();
-    // audio();
+    audio();
     // decode();
     // battery_info();
     // switches();

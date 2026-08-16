@@ -171,9 +171,12 @@ void gpio_callback(uint gpio, uint32_t events) {
 }
 
 void audio() {
-    sleep_ms(20);
-    gpio_init(SW_3);
-    gpio_set_irq_enabled_with_callback(SW_3, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    void* addr;
+    uint32_t remaining;
+
+    // sleep_ms(20);
+    // gpio_init(SW_3);
+    // gpio_set_irq_enabled_with_callback(SW_3, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
         wave_table[i] = (int16_t) ((INT16_MAX - 1) * sinf((float) i / WAVE_TABLE_LEN * 2*M_PI));
@@ -184,11 +187,27 @@ void audio() {
     gpio_set_dir(MUTE, GPIO_OUT);
     gpio_put(MUTE, true);
 
-    i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, callback, SAMPLE_RATE);
+    audio_request_t* audio_request = i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, SAMPLE_RATE);
     printf("Initialized I2S\n");
-    // while (true) {
-    //     tight_loop_contents();
-    // }
+    // i2s_play();
+    // printf("Playing\n");
+    int pos;
+    while (true) {
+        if (audio_request->pending) {
+            printf("recieved audio request\n");
+            audio_request_access_start();
+            audio_request->pending = false;
+            addr = audio_request->addr;
+            remaining = audio_request->size;
+            audio_request_access_stop();
+            for (int i = 0; i < remaining / 4; i++) {
+                ((int16_t*) addr)[i*2] = wave_table[pos] / 8;
+                ((int16_t*) addr)[i*2+1] = wave_table[(int)(pos * 8) % WAVE_TABLE_LEN] / 16;
+                pos++;
+                pos %= WAVE_TABLE_LEN;
+            }
+        }
+    }
 }
 #undef SAMPLE_RATE
 #undef FREQUENCY
@@ -241,7 +260,7 @@ void decode() {
     
     printf("Created music file, error: %d.\n", err);
     
-    i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, decode_callback, 48000);
+    i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, 48000);
     printf("Initialized i2s!\n");
 
     // while (true) {
