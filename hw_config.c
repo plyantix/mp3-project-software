@@ -29,10 +29,10 @@ static spi_t spi = {
     .sck_gpio = SD_SCK,    // GPIO number (not Pico pin number)
     .mosi_gpio = SD_TX,
     .miso_gpio = SD_RX,
-    // .baud_rate = 125 * 1000 * 1000 / 16  // 15625000 Hz
+    .baud_rate = 125 * 1000 * 1000 / 12  // 15625000 Hz
     // .baud_rate = 125 * 1000 * 1000 / 6  // 20833333 Hz
     // .baud_rate = 125 * 1000 * 1000 / 4  // 31250000 Hz
-    .baud_rate = 125 * 1000 * 1000 / 2  // 62500000 Hz
+    // .baud_rate = 125 * 1000 * 1000 / 2  // 62500000 Hz
 };
 
 /* SPI Interface */

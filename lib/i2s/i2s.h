@@ -9,7 +9,9 @@
 #define BITDEPTH 16
 
 struct {
-    void* volatile addr;
+    // The rare pointer volatile. 
+    // The interrupt handler changes the address to create a circular buffer, but the contents of the buffer are never modified from the handler.
+    void* volatile addr; 
     volatile uint32_t size;
     volatile bool pending;
 } typedef audio_request_t;

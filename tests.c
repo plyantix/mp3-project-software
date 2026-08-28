@@ -13,6 +13,8 @@
 
 #include "music_file.h"
 
+#include "mp3_decoder.h"
+
 #include "pins.h"
 
 #include "tests.h"
@@ -146,7 +148,7 @@ void sd_card() {
 
 #pragma region AUDIO_TEST
 
-#define SAMPLE_RATE 44100
+#define SAMPLE_RATE 32000
 #define FREQUENCY 440
 #define WAVE_TABLE_LEN (SAMPLE_RATE/FREQUENCY)
 static int16_t wave_table[WAVE_TABLE_LEN];
@@ -171,41 +173,68 @@ void gpio_callback(uint gpio, uint32_t events) {
 }
 
 void audio() {
-    void* addr;
+    void* request_buff;
     uint32_t remaining;
 
     // sleep_ms(20);
     // gpio_init(SW_3);
     // gpio_set_irq_enabled_with_callback(SW_3, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        wave_table[i] = (int16_t) ((INT16_MAX - 1) * sinf((float) i / WAVE_TABLE_LEN * 2*M_PI));
-    }
-    printf("Generated wave table!\n");
+    // for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+    //     wave_table[i] = (int16_t) ((INT16_MAX - 1) * sinf((float) i / WAVE_TABLE_LEN * 2*M_PI));
+    // }
+    // printf("Generated wave table!\n");
 
     gpio_init(MUTE);
     gpio_set_dir(MUTE, GPIO_OUT);
     gpio_put(MUTE, true);
 
+    mp3d_sample_t sample_buff[1152*2];
+    mp3_decoder_init();
+    mp3_open_file("stereo-test.mp3");
+
     audio_request_t* audio_request = i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, SAMPLE_RATE);
     printf("Initialized I2S\n");
-    // i2s_play();
     // printf("Playing\n");
-    int pos;
+    int pos = 0;
+    int overflow_bytes = 0;
     while (true) {
+        // sleep_ms(10);
+
         if (audio_request->pending) {
-            printf("recieved audio request\n");
+            // printf("recieved audio request\n");
             audio_request_access_start();
             audio_request->pending = false;
-            addr = audio_request->addr;
+            request_buff = audio_request->addr;
             remaining = audio_request->size;
             audio_request_access_stop();
-            for (int i = 0; i < remaining / 4; i++) {
-                ((int16_t*) addr)[i*2] = wave_table[pos] / 8;
-                ((int16_t*) addr)[i*2+1] = wave_table[(int)(pos * 8) % WAVE_TABLE_LEN] / 16;
-                pos++;
-                pos %= WAVE_TABLE_LEN;
+
+            int to_write;
+            int num_samples;
+            // Handle any bytes leftover in the sample buffer after the previous audio request
+            memcpy(request_buff, ((char*)sample_buff) + (sizeof(sample_buff) - overflow_bytes), overflow_bytes);
+            request_buff += overflow_bytes;
+            remaining -= overflow_bytes;
+            // Fill the buffer
+            while (remaining > 0) {
+                num_samples = mp3_read_samples(sample_buff);
+                for (int i = 0; i < 1152*2; i++) {
+                    sample_buff[i] = sample_buff[i] / 6;
+                }
+                to_write = MIN(num_samples * sizeof(mp3d_sample_t), remaining);
+                memcpy(request_buff, sample_buff, to_write);
+                request_buff += to_write;
+                remaining -= to_write;
+                // printf("%d %d %d\n", remaining, num_samples, to_write);
+                if (audio_request->pending) {
+                    // Did not fill the audio request in time
+                    // Will cause glitchy audio
+                    // The time taken to printf may cause this to snowball
+                    printf("!");
+                    break;
+                }
             }
+            overflow_bytes = num_samples * sizeof(mp3d_sample_t) - to_write;
         }
     }
 }

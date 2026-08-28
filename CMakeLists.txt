@@ -40,8 +40,10 @@ add_executable(mp3
         hw_config.c
         # usb_descriptors.c
         # usb_msc_interface.c
+        lib/minimp3/minimp3.h
+        mp3_decoder.c
         tests.c
-        lib/picomp3lib/interface/music_file.c
+        # lib/picomp3lib/interface/music_file.c
         )
 
 pico_set_program_name(mp3 "mp3")

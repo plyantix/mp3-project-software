@@ -10,11 +10,11 @@
 #include "hardware/clocks.h"
 
 static uint8_t __attribute__((aligned(4))) tx_buff[2][AUDIO_BUFFER_SIZE] = {0};
+static bool active_buff = 0;
 static PIO i2s_pio;
 static uint i2s_sm;
 static uint i2s_offset;
-static uint i2s_dma_0;
-static uint i2s_dma_1;
+static uint i2s_dma;
 
 audio_request_t audio_request = {
     .addr = tx_buff[0],
@@ -23,21 +23,16 @@ audio_request_t audio_request = {
 };
 
 static void __isr __time_critical_func(dma_handler()) {
-    printf("DMA IRQ ch. ");
-    // Check which channel sent the interrupt 
-    if (dma_irqn_get_channel_status(0, i2s_dma_0)) {
-        printf("0\n");
-        dma_irqn_acknowledge_channel(0, i2s_dma_0);
-        audio_request.addr = tx_buff[0];
-        audio_request.size = sizeof(tx_buff[0]);
+    active_buff = !active_buff;
+    dma_channel_transfer_from_buffer_now(i2s_dma, tx_buff[active_buff], sizeof(tx_buff[active_buff]) / 4);
+    if (dma_irqn_get_channel_status(0, i2s_dma)) {
+        dma_irqn_acknowledge_channel(0, i2s_dma);
     }
-    else if (dma_irqn_get_channel_status(0, i2s_dma_1)) {
-        printf("1\n");
-        dma_irqn_acknowledge_channel(0, i2s_dma_1);
-        audio_request.addr = tx_buff[1];
-        audio_request.size = sizeof(tx_buff[1]);
-    }
+    // printf("DMA IRQ ch. ");
     audio_request.pending = true;
+    audio_request.addr = tx_buff[active_buff];
+    audio_request.size = sizeof(tx_buff[active_buff]);
+    // printf("%d\n", active_buff);
 
 }
 
@@ -80,46 +75,34 @@ audio_request_t* i2s_init(PIO pio, uint data_pin, uint clock_pin, uint32_t rate)
     pio_sm_set_enabled(pio, i2s_sm, true);
 
     // DMA:
-    i2s_dma_0 = dma_claim_unused_channel(true);
-    i2s_dma_1 = dma_claim_unused_channel(true);
+    i2s_dma = dma_claim_unused_channel(true);
 
     // Two channels are configured. One reads from the first half of the tx buffer,
     // and one reads from the second half. Each automatically triggers the other one when
     // finished and also triggers an irq. (circular buffer)
-    dma_channel_config_t dma_config_0 = dma_channel_get_default_config(i2s_dma_0);
+    dma_channel_config_t dma_config = dma_channel_get_default_config(i2s_dma);
     // I2S pio will request the dma for more data when it runs out
-    channel_config_set_dreq(&dma_config_0, pio_get_dreq(pio, i2s_sm, true)); 
-    channel_config_set_chain_to(&dma_config_0, i2s_dma_1);
+    channel_config_set_dreq(&dma_config, pio_get_dreq(pio, i2s_sm, true)); 
+
     dma_channel_configure(
-            i2s_dma_0,
-            &dma_config_0,
+            i2s_dma,
+            &dma_config,
             &pio->txf[i2s_sm], // Write to the state machine's output buffer
-            tx_buff[0], // Read address
-            sizeof(tx_buff[0]) / 4, // Transfer count
+            NULL, // Read address
+            0, // Transfer count
             false // Start immediently
     );
 
-    dma_channel_config_t dma_config_1 = dma_channel_get_default_config(i2s_dma_1);
-    channel_config_set_dreq(&dma_config_1, pio_get_dreq(pio, i2s_sm, true));
-    channel_config_set_chain_to(&dma_config_1, i2s_dma_0);
-    dma_channel_configure(
-            i2s_dma_1,
-            &dma_config_1,
-            &pio->txf[i2s_sm], // Write to the state machine's output buffer
-            tx_buff[1], // Read address
-            sizeof(tx_buff[1]) / 4, // Transfer count
-            false // Start immediently
-    );
-    printf("DMA's configured\n");
+    printf("DMA configured\n");
 
-    dma_channel_set_irq0_enabled(i2s_dma_0, true);
-    dma_channel_set_irq0_enabled(i2s_dma_1, true);
+    dma_channel_set_irq0_enabled(i2s_dma, true);
 
     irq_set_exclusive_handler(dma_get_irq_num(0), dma_handler);
     irq_set_enabled(dma_get_irq_num(0), true);
 
     printf("starting dma 0\n");
-    dma_channel_start(0);
+    active_buff = 0;
+    dma_handler();
 
     printf("returning from i2s init\n");
     return &audio_request;

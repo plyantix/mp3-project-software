@@ -3,8 +3,8 @@
 #include "pico/bootrom.h"
 #include "tests.h"
 #include "pins.h"
-#include "tusb_config.h"
-#include "tusb.h"
+// #include "tusb_config.h"
+// #include "tusb.h"
 #include "ST7565R.h"
 #include "Ff.h"
 
@@ -25,8 +25,8 @@ int main()
     // gpio_set_dir(LCD_BACKLIGHT, GPIO_OUT);
     // gpio_put(LCD_BACKLIGHT, true);
     // stdio_init_all();
-    // FATFS fs;
-    // f_mount(&fs, "", 1);
+    FATFS fs;
+    f_mount(&fs, "", 1);
     // int err = tusb_init();
     // ST7565R_write_text(0, 0, "%d", err);
     // rom_reset_usb_boot(1<<LCD_BACKLIGHT, 0);
