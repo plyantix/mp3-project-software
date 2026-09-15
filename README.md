@@ -1,0 +1,1 @@
+Firmware for [mp3 project](https://github.com/plyantix/mp3-project-hardware). Currently incomplete.

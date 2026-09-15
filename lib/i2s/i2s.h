@@ -5,7 +5,7 @@
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 
-#define AUDIO_BUFFER_SIZE 1024*4
+#define AUDIO_BUFFER_SIZE 1024*8
 #define BITDEPTH 16
 
 struct {

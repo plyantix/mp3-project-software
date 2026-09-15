@@ -21,6 +21,9 @@ static uint8_t* read_ptr = file_buff;
 static uint32_t bytes_remaining = sizeof(file_buff);
 
 static void fill_buffer(uint8_t* from, unsigned int* remaining) {
+    if (remaining) {
+        *remaining = 0;
+    }
     volatile int err = f_read(&file, from, FILE_BUFF_SIZE - (from - file_buff), remaining);
 }
 
@@ -45,18 +48,18 @@ int mp3_read_samples(mp3d_sample_t* sample_buff) {
     if (bytes_remaining < 1024*16) {
         // printf(".\n");
         // Minimp3 reccomends having at least 16kB of data in the buffer
-        memcpy(file_buff, read_ptr, bytes_remaining); // move the remainng data to the start of the buffer
-        unsigned int br = 1;
-        fill_buffer(file_buff + bytes_remaining, &br);
-        if (br == 0) {
-            f_lseek(&file, 0);
+        uint32_t valid_bytes = bytes_remaining;
+        memmove(file_buff, read_ptr, valid_bytes); // move the remaining data to the start of the buffer
+        unsigned int br = 0;
+        fill_buffer(file_buff + valid_bytes, &br);
+        if (br == 0 && valid_bytes == 0) {
+            return -1;
         }
-        // TODO: check bytes remaining. If > 0, assume eof
         read_ptr = file_buff;
-        bytes_remaining = sizeof(file_buff);
+        bytes_remaining = valid_bytes + br;
     }
-    // if (frame_info.hz != 0) {
-    //     volatile int x = 0;
-    // }
-    return num_samples;// * (frame_info.channels > 0 ? frame_info.channels : 1);
+    if (frame_info.hz != 0) {
+        volatile int x = 0;
+    }
+    return num_samples * (frame_info.channels > 0 ? frame_info.channels : 1);
 }

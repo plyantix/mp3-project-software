@@ -148,23 +148,10 @@ void sd_card() {
 
 #pragma region AUDIO_TEST
 
-#define SAMPLE_RATE 32000
+#define SAMPLE_RATE 48000
 #define FREQUENCY 440
 #define WAVE_TABLE_LEN (SAMPLE_RATE/FREQUENCY)
 static int16_t wave_table[WAVE_TABLE_LEN];
-
-static void callback(void* addr, const uint32_t len) {
-    static int pos = 0;
-
-    for (int i = 0; i < len / 4; i++) {
-        ((int16_t*) addr)[i*2] = wave_table[pos] / 8;
-        ((int16_t*) addr)[i*2+1] = wave_table[(int)(pos * 8) % WAVE_TABLE_LEN] / 16;
-        pos++;
-        pos %= WAVE_TABLE_LEN;
-    }
-    // printf("I2S Callback!\n");
-}
-
 
 void gpio_callback(uint gpio, uint32_t events) {
     printf("restarting\n");
@@ -191,15 +178,30 @@ void audio() {
 
     mp3d_sample_t sample_buff[1152*2];
     mp3_decoder_init();
-    mp3_open_file("stereo-test.mp3");
+    mp3_open_file("21. Modern Gamer.mp3");
 
     audio_request_t* audio_request = i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, SAMPLE_RATE);
     printf("Initialized I2S\n");
+
+    // FIL log_file;
+    // f_open(&log_file, "log2.bin", FA_CREATE_ALWAYS | FA_WRITE);
+
     // printf("Playing\n");
     int pos = 0;
     int overflow_bytes = 0;
+    uint32_t loop_counter = 0;
     while (true) {
         // sleep_ms(10);
+        if ((loop_counter % 2000) == 0) {
+#ifdef AUDIO_TRACE
+            printf("irq=%lu request=%lu active=%d overflow=%d\n",
+                   dma_irq_count,
+                   dma_request_count,
+                   active_buff,
+                   overflow_bytes);
+#endif
+        }
+        loop_counter++;
 
         if (audio_request->pending) {
             // printf("recieved audio request\n");
@@ -211,30 +213,49 @@ void audio() {
 
             int to_write;
             int num_samples;
-            // Handle any bytes leftover in the sample buffer after the previous audio request
-            memcpy(request_buff, ((char*)sample_buff) + (sizeof(sample_buff) - overflow_bytes), overflow_bytes);
-            request_buff += overflow_bytes;
-            remaining -= overflow_bytes;
-            // Fill the buffer
+            if (overflow_bytes > 0) {
+                memmove(request_buff, ((char*)sample_buff) + (sizeof(sample_buff) - overflow_bytes), overflow_bytes);
+                request_buff += overflow_bytes;
+                remaining -= overflow_bytes;
+                overflow_bytes = 0;
+            }
+
             while (remaining > 0) {
                 num_samples = mp3_read_samples(sample_buff);
+                if (num_samples <= 0) {
+                    memset(request_buff, 0, remaining);
+                    remaining = 0;
+                    break;
+                }
                 for (int i = 0; i < 1152*2; i++) {
                     sample_buff[i] = sample_buff[i] / 6;
                 }
-                to_write = MIN(num_samples * sizeof(mp3d_sample_t), remaining);
+
+                uint32_t frame_bytes = num_samples * sizeof(mp3d_sample_t);
+                to_write = MIN(frame_bytes, remaining);
                 memcpy(request_buff, sample_buff, to_write);
                 request_buff += to_write;
                 remaining -= to_write;
-                // printf("%d %d %d\n", remaining, num_samples, to_write);
-                if (audio_request->pending) {
-                    // Did not fill the audio request in time
-                    // Will cause glitchy audio
-                    // The time taken to printf may cause this to snowball
-                    printf("!");
+
+                if (remaining == 0) {
+                    overflow_bytes = 0;
                     break;
                 }
+
+                if (audio_request->pending) {
+                    memset(request_buff, 0, remaining);
+                    remaining = 0;
+                    overflow_bytes = 0;
+                    break;
+                }
+
+                if (to_write < frame_bytes) {
+                    overflow_bytes = frame_bytes - to_write;
+                    memmove(sample_buff, ((char*)sample_buff) + to_write, overflow_bytes);
+                    break;
+                }
+                overflow_bytes = 0;
             }
-            overflow_bytes = num_samples * sizeof(mp3d_sample_t) - to_write;
         }
     }
 }
@@ -242,60 +263,4 @@ void audio() {
 #undef FREQUENCY
 #undef WAVE_TABLE_LEN
 
-void mp3_decode() {
-
-}
-
-#pragma endregion
-
-#pragma region DECODE_TEST
-#define MF_BUFF_SIZE 1024 * 32
-
-
-char mf_buff[MF_BUFF_SIZE]; // Buffer used internally by the mf library
-music_file mf = {
-    .init = false
-};
-
-void decode_callback(void* buff, uint32_t len) {
-    uint32_t written = 0;
-    // if the music file is mono, this will not duplicate the samples!!!
-
-    musicFileRead(&mf, buff, len / 2, &written);
-
-    for (int i = 0; i < len / 2; i++) {
-        ((int16_t*) buff)[i] = ((int16_t*) buff)[i] / 16;
-    }
-    // printf("Music file written, len: %d, written: %d\n", len, written);
-    // should also check if written < len/2
-}
-
-FATFS fs;
-void decode() {
-    FRESULT res = f_mount(&fs, "", 1);
-    if (res != FR_OK) {
-        printf("Could not mount file system! Error: %d\n", res);
-        return;
-    }
-    printf("Sucessfully mounted file system!\n");
-
-    gpio_init(MUTE);
-    gpio_set_dir(MUTE, GPIO_OUT);
-    gpio_put(MUTE, true);
-
-    
-    
-    bool err = musicFileCreate(&mf, "stereo-test.wav", mf_buff, sizeof(mf_buff));
-    
-    printf("Created music file, error: %d.\n", err);
-    
-    i2s_init(pio0, AUDIO_DATA, AUDIO_BCK, 48000);
-    printf("Initialized i2s!\n");
-
-    // while (true) {
-    //     tight_loop_contents();
-    // }
-}
-
-#undef MF_BUFF_SIZE
 #pragma endregion

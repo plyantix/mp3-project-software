@@ -9,6 +9,14 @@
 #include "audio_i2s.pio.h"
 #include "hardware/clocks.h"
 
+//#define AUDIO_TRACE
+
+#ifdef AUDIO_TRACE
+static volatile uint32_t dma_irq_count = 0;
+static volatile uint32_t dma_request_count = 0;
+static volatile uint32_t dma_last_completed = 0;
+#endif
+
 static uint8_t __attribute__((aligned(4))) tx_buff[2][AUDIO_BUFFER_SIZE] = {0};
 static bool active_buff = 0;
 static PIO i2s_pio;
@@ -23,17 +31,30 @@ audio_request_t audio_request = {
 };
 
 static void __isr __time_critical_func(dma_handler()) {
-    active_buff = !active_buff;
-    dma_channel_transfer_from_buffer_now(i2s_dma, tx_buff[active_buff], sizeof(tx_buff[active_buff]) / 4);
+    uint completed_buff = active_buff;
+    uint next_buff = !completed_buff;
+
     if (dma_irqn_get_channel_status(0, i2s_dma)) {
         dma_irqn_acknowledge_channel(0, i2s_dma);
     }
-    // printf("DMA IRQ ch. ");
-    audio_request.pending = true;
-    audio_request.addr = tx_buff[active_buff];
-    audio_request.size = sizeof(tx_buff[active_buff]);
-    // printf("%d\n", active_buff);
 
+#ifdef AUDIO_TRACE
+    dma_irq_count++;
+    dma_last_completed = completed_buff;
+#endif
+
+    // The buffer that just finished transmitting is now owned by the CPU. The other half
+    // is the next DMA target so the PIO keeps streaming continuously.
+    active_buff = next_buff;
+    dma_channel_transfer_from_buffer_now(i2s_dma, tx_buff[next_buff], sizeof(tx_buff[next_buff]) / 4);
+
+    audio_request.pending = true;
+    audio_request.addr = tx_buff[completed_buff];
+    audio_request.size = sizeof(tx_buff[completed_buff]);
+
+#ifdef AUDIO_TRACE
+    dma_request_count++;
+#endif
 }
 
 
@@ -102,7 +123,10 @@ audio_request_t* i2s_init(PIO pio, uint data_pin, uint clock_pin, uint32_t rate)
 
     printf("starting dma 0\n");
     active_buff = 0;
-    dma_handler();
+    dma_channel_transfer_from_buffer_now(i2s_dma, tx_buff[0], sizeof(tx_buff[0]) / 4);
+    audio_request.pending = true;
+    audio_request.addr = tx_buff[1];
+    audio_request.size = sizeof(tx_buff[1]);
 
     printf("returning from i2s init\n");
     return &audio_request;
